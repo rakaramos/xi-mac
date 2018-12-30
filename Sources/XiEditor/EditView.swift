@@ -505,11 +505,19 @@ final class EditView: NSView, NSTextInputClient, TextPlaneDelegate {
 
         // fourth pass: draw carets
         let cursorArgb = colorToArgb(cursorColor)
+        var linesWithCursors = Set<UInt>()
+        var lastLogicalLine: UInt?
         for lineIx in first..<last {
             let relLineIx = lineIx - first
             if let textLine = textLines[relLineIx], let line = lines[relLineIx] {
+                if let logicalLine = line.number {
+                    lastLogicalLine = logicalLine
+                }
                 let y0 = yOff + linespace * CGFloat(lineIx)
                 for cursor in line.cursor {
+                    if let lastLogicalLine = lastLogicalLine {
+                        linesWithCursors.insert(lastLogicalLine)
+                    }
                     let utf16Ix = utf8_offset_to_utf16(line.text, cursor)
                     // Note: It's ugly that cursorPos is set as a side-effect
                     // TODO: disabled until firstRect logic is fixed
@@ -555,8 +563,9 @@ final class EditView: NSView, NSTextInputClient, TextPlaneDelegate {
                 continue
             }
 
-            if let gutterNumber = line.number {
-                let gutterTL = gutterCache!.lookupLineNumber(lineIdx: gutterNumber, hasCursor: line.containsCursor)
+            if let gutterNumber = line.number, let gutterCache = gutterCache {
+                let gutterTL = gutterCache.lookupLineNumber(lineIdx: gutterNumber,
+                                                            hasCursor: linesWithCursors.contains(gutterNumber))
 
                 let x = dataSource.gutterWidth - (gutterXPad + CGFloat(gutterTL.width))
                 let y0 = yOff + dataSource.textMetrics.ascent + linespace * CGFloat(lineIx)
